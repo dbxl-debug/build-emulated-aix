@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -ex
+
+cd "$(dirname "$0")"
+
+if [ ! -x bin/qemu-system-ppc ]; then
+    if [ ! -d qemu-aix ]; then
+        git clone git@github.com:dbxl-debug/qemu-aix.git qemu-aix
+    fi
+    cd qemu-aix
+    git fetch origin
+    if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
+      git switch main
+    fi
+    git pull --ff-only origin main
+    ./configure --target-list=ppc-softmmu
+    make -j"$(nproc)"
+    cp ./build/qemu-system-ppc ../bin/
+    cd ..
+fi
+

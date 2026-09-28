@@ -1,0 +1,156 @@
+#!/usr/bin/expect -f
+#
+# Install the AIX 4.3.3 Base Operating System from CD onto an empty disk.
+#
+# usage: install-bos.exp qemu-system-ppc [qemu args...]
+#
+# The QEMU command line must attach the blank disk and Volume_1.iso and use
+# the serial console (-nographic).  After the install it boots the new system,
+# sets the root password (from $AIX_ROOT_PASSWORD, default "root") in the
+# Installation Assistant, then shuts AIX down and exits QEMU.  Exits 0 on
+# success.
+
+proc step {msg} {
+    send_user "\n*** install-bos: $msg\n"
+}
+
+# Move the Installation Assistant's highlight down to $item.
+proc menu_down_to {item} {
+    # Build the patterns outside the expect body, which would otherwise
+    # substitute them a second time and undo the \[ escape.  Both match the
+    # whole highlighted line, since the serial console can deliver the escape
+    # sequence before the item text.
+    set highlighted "\033\[7m$item\r"
+    set any_highlight {\x1b\[7m[^\r]*\r}
+    set timeout 10
+    for {set i 0} {$i < 20} {incr i} {
+        send "\033\[B"
+        expect {
+            -ex $highlighted { return }
+            -re $any_highlight { }
+        }
+    }
+    send_user "\n*** install-bos: could not find menu item \"$item\"\n"
+    quit_qemu
+    exit 1
+}
+
+proc quit_qemu {} {
+    # Ctrl-A x exits QEMU when using -nographic
+    send "\001x"
+    expect eof
+}
+
+expect_after {
+    timeout {
+        send_user "\n*** install-bos: timed out waiting for the next prompt\n"
+        quit_qemu
+        exit 1
+    }
+    eof {
+        send_user "\n*** install-bos: qemu exited unexpectedly\n"
+        exit 1
+    }
+}
+
+if {[info exists env(AIX_ROOT_PASSWORD)]} {
+    set root_password $env(AIX_ROOT_PASSWORD)
+} else {
+    set root_password root
+}
+
+spawn {*}$argv
+
+# The firmware's default boot device is ethernet; wait for that to fail and
+# drop to the Open Firmware prompt, then boot the PReP partition on the CD.
+set timeout 300
+expect "Boot load failed"
+expect "ok "
+step "booting from cdrom:2"
+send "boot cdrom:2\r"
+
+# Loading the AIX boot image under emulation is slow.
+set timeout 3600
+expect "Please define the System Console"
+expect "system console"
+step "selecting this terminal as the system console"
+send "1\r"
+
+set timeout 1800
+expect "to have English during install"
+expect -ex {Choice [}
+step "selecting English for the install"
+send "1\r"
+
+expect "Installation and Maintenance"
+expect -ex {Choice [}
+step "choosing Change/Show Installation Settings and Install"
+send "2\r"
+
+# Check the settings before committing to the install.
+expect -re {Installation and Settings(.*)Choice \[}
+set settings $expect_out(1,string)
+foreach want {"New and Complete Overwrite" "hdisk0" "Install Trusted Computing Base...... No"} {
+    if {[string first $want $settings] < 0} {
+        send_user "\n*** install-bos: unexpected installation settings, missing \"$want\"\n"
+        quit_qemu
+        exit 1
+    }
+}
+step "installing with the current settings"
+send "0\r"
+
+set timeout 600
+expect "Installing Base Operating System"
+
+# The install itself takes a long time; when it finishes the machine reboots
+# and the firmware again fails to boot from ethernet.
+set timeout 43200
+expect "Rebooting"
+set timeout 600
+expect "Boot load failed"
+expect "ok "
+step "BOS install complete, booting from disk:1"
+send "boot disk:1\r"
+
+set timeout 1800
+expect "Set Terminal Type"
+expect -ex {Choice []:}
+step "setting terminal type to vt100"
+send "vt100\r"
+
+set timeout 600
+expect "Installation Assistant"
+expect "Tasks Completed - Exit to AIX Login"
+expect "Enter=Do"
+step "setting root password"
+menu_down_to "Set root Password"
+send "\r"
+expect "root's New password:"
+send "$root_password\r"
+expect "Enter the new password again:"
+send "$root_password\r"
+
+expect "Installation Assistant"
+expect "Enter=Do"
+step "exiting the Installation Assistant"
+menu_down_to "Tasks Completed - Exit to AIX Login"
+send "\r"
+
+expect "Console login:"
+step "logging in as root"
+send "root\r"
+expect "root's Password:"
+send "$root_password\r"
+expect -re {\n# $}
+
+step "shutting down"
+set timeout 600
+send "shutdown -F\r"
+# Match at the start of a line, since shutdown's banner also says
+# "Wait for '....Halt completed....' before stopping."
+expect -ex "\n....Halt completed...."
+
+step "done"
+quit_qemu
+exit 0

@@ -20,8 +20,10 @@ if [ ! -x bin/qemu-system-ppc ]; then
     cd ..
 fi
 
-if ! (cd res && md5sum -c --status md5); then
-    curl -fL -o res/q40pofw-serial.rom https://github.com/artyom-tarasenko/openfirmware/releases/download/40p-20190413/q40pofw-serial.rom
-    (cd res && md5sum -c md5)
+cd res
+if ! md5sum -c --status q40pofw-serial.rom.md5; then
+    curl -fL -o q40pofw-serial.rom https://github.com/artyom-tarasenko/openfirmware/releases/download/40p-20190413/q40pofw-serial.rom
+    md5sum -c q40pofw-serial.rom.md5
 fi
+cd ..
 

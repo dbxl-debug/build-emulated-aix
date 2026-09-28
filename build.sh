@@ -39,3 +39,4 @@ if [ ! -e "res/Volume_1.iso" ]; then
     bsdtar xvf "res/IBM AIX 4.3.3 (LCD4_0286_06) (ISO) [PPC] Volume 1.7z" -C res --strip-components 1 "*/Volume_1.iso"
 fi
 
+qemu-img create -f qcow2 data/aix433.qcow2 4G

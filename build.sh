@@ -21,6 +21,11 @@ if [ ! -x bin/qemu-system-ppc ]; then
     cd ..
 fi
 
+if [ ! -e "res/pc-bios/efi-pcnet.rom" ]; then
+    mkdir -p "res/pc-bios"
+    cp "qemu-aix/pc-bios/efi-pcnet.rom" "res/pc-bios/efi-pcnet.rom"
+fi
+
 fetch() {
     local url="$1"
     local filename="$2"
@@ -39,4 +44,18 @@ if [ ! -e "res/Volume_1.iso" ]; then
     bsdtar xvf "res/IBM AIX 4.3.3 (LCD4_0286_06) (ISO) [PPC] Volume 1.7z" -C res --strip-components 1 "*/Volume_1.iso"
 fi
 
-qemu-img create -f qcow2 data/aix433.qcow2 4G
+if [ ! -e data/aix433.qcow2 ]; then
+    qemu-img create -f qcow2 data/aix433.qcow2 4G
+fi
+
+./bin/qemu-system-ppc \
+  -L res/pc-bios \
+  -M 40p \
+  -m 192 \
+  -bios res/q40pofw-serial.rom \
+  -hda data/aix433.qcow2 \
+  -cdrom res/Volume_1.iso \
+  -vga none \
+  -nographic
+
+

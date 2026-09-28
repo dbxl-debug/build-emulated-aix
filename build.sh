@@ -34,3 +34,8 @@ fetch() {
 
 fetch https://github.com/artyom-tarasenko/openfirmware/releases/download/40p-20190413/q40pofw-serial.rom q40pofw-serial.rom
 fetch https://winworldpc.com/download/6193a427-4be5-11e8-8d2a-fa163e9022f0/from/c3ae6ee2-8099-713d-3411-c3a6e280947e "IBM AIX 4.3.3 (LCD4_0286_06) (ISO) [PPC] Volume 1.7z"
+
+if [ ! -e "res/Volume_1.iso" ]; then
+    bsdtar xvf "res/IBM AIX 4.3.3 (LCD4_0286_06) (ISO) [PPC] Volume 1.7z" -C res --strip-components 1 "*/Volume_1.iso"
+fi
+

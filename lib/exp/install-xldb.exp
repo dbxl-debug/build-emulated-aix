@@ -1,0 +1,55 @@
+# Install XLDB and the X11 runtime libraries it needs.
+#
+# usage: expect lib/exp/install-xldb.exp qemu-system-ppc [qemu args...]
+#
+# The QEMU command line must attach the installed disk, the AIX Volume 1 CD
+# as the first CD-ROM (cd0) and xldb.tar.iso as the second (cd1), and use the
+# serial console (-nographic).  Shuts AIX down and exits QEMU when done.
+# Exits 0 on success.
+
+source [file join [file dirname [info script]] aix.exp]
+
+# Fail unless $fileset is installed at $level.
+proc check_installed {fileset level} {
+    set out [run "lslpp -L $fileset"]
+    if {![regexp "\n *[string map {. \\.} $fileset] +[string map {. \\.} $level] " $out]} {
+        fail "$fileset $level is not installed"
+    }
+}
+
+start_qemu $argv
+boot_from disk:1
+login_root
+
+step "mounting CD-ROMs"
+run "mkdir /cdrom"
+run "mount -v cdrfs -o ro /dev/cd0 /cdrom"
+run "mkdir /cdrom2"
+run "mount -v cdrfs -o ro /dev/cd1 /cdrom2"
+
+# installp's exit status isn't a reliable sign of success, since warnings
+# such as already-superseded filesets can make it non-zero, so check what
+# actually got installed instead.
+step "installing X11.base.lib"
+run_status "installp -a -g -d /cdrom/usr/sys/inst.images X11.base.lib" 1800
+check_installed X11.base.lib 4.3.3.25
+
+step "installing xldb"
+run "mkdir /tmp/xldb"
+run "cd /tmp/xldb"
+run "tar xvf /cdrom2/xldb.tar" 300
+run "inutoc ."
+run_status "installp -a -d . xldb.base xldb.help.en_US xldb.msg.en_US" 1800
+foreach fileset {xldb.base xldb.help.en_US xldb.msg.en_US} {
+    check_installed $fileset 1.2.1.1
+}
+
+step "cleaning up /tmp/xldb"
+run "cd /"
+run "rm -rf /tmp/xldb"
+
+shutdown_halt
+
+step "done"
+quit_qemu
+exit 0

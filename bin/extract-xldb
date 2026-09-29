@@ -1,0 +1,54 @@
+#!/bin/bash
+# Extract xldb.{base,help.en_US,msg.en_US} installp images from the ISOs,
+# naming them xldb.<fileset>.<VERSION>.bff.  The discs are plain ISO9660
+# (8.3 names), so the per-directory .TOC files are used to map each image
+# file to its fileset and version.  The result is a flat, uncompressed
+# plain ustar tarball (no pax/GNU extensions) so AIX tar can read it.
+#
+# usage: extract-xldb.sh [tarball] [iso...]
+set -euo pipefail
+
+tarball=$(realpath -m "${1:-xldb.tar}")
+shift || true
+if [ $# -eq 0 ]; then
+    set -- "$(dirname "$0")"/*.iso
+fi
+out=$(mktemp -d)
+trap 'rm -rf "$out"' EXIT
+
+for iso in "$@"; do
+    # every .TOC except the root one; entries in them are relative to their dir
+    isoinfo -f -i "$iso" | grep -E '^/.+/\.TOC$' | while read -r toc; do
+        dir=${toc%/.TOC}
+        isoinfo -i "$iso" -x "$toc" | awk '
+            # image header: "<file> <n> R I <fileset> {"
+            /^[^ *]+ [0-9] [RS] [A-Z] / { file = $1; next }
+            /^}/ { file = ""; next }
+            file != "" && $1 ~ /^xldb\.(base|help\.en_US|msg\.en_US)$/ && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ {
+                split($2, v, ".")
+                printf "%s %s %d.%d.%d.%d\n", file, $1, v[1], v[2], v[3], v[4]
+            }' | sort -u | while read -r file fileset version; do
+            src="$dir/$(echo "$file" | tr '[:lower:]' '[:upper:]')"
+            dst="$out/$fileset.$version.bff"
+            tmp=$(mktemp "$out/.tmp.XXXXXX")
+            isoinfo -i "$iso" -x "$src" > "$tmp"
+            if [ ! -s "$tmp" ]; then
+                echo "WARN: empty/missing $iso:$src" >&2
+                rm -f "$tmp"
+            elif [ ! -e "$dst" ]; then
+                mv "$tmp" "$dst"
+                echo "$(basename "$dst") <- $(basename "$iso"):$src"
+            elif cmp -s "$tmp" "$dst"; then
+                rm -f "$tmp"    # identical copy already extracted
+            else
+                echo "ERROR: $(basename "$iso"):$src differs from already extracted $(basename "$dst")" >&2
+                exit 1
+            fi
+        done
+    done
+done
+
+chmod 0644 "$out"/*.bff
+(cd "$out" && ls *.bff) | tar -C "$out" -cf "$tarball" --format=ustar \
+    --owner=0 --group=0 --numeric-owner --no-recursion -T -
+echo "wrote $tarball"

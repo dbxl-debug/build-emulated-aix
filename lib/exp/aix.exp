@@ -33,6 +33,9 @@ proc fail {msg} {
 
 proc start_qemu {cmd} {
     global spawn_id
+    # Keep enough output for run to match the whole of a long command's
+    # output, such as installp's.
+    match_max -d 1000000
     spawn {*}$cmd
     expect_after {
         timeout { fail "timed out waiting for the next prompt" }
@@ -64,14 +67,20 @@ proc login_root {} {
     expect -re {\n# $}
 }
 
-# Run a shell command as root and return its output.  Fails unless the
-# command exits 0.
-proc run {cmd {timeout 60}} {
+# Run a shell command as root and return a list of its exit status and
+# output.
+proc run_status {cmd {timeout 60}} {
     send "$cmd; echo \"__rc=\$?\"\r"
     # The echoed command line has a literal $? where the output has digits.
     expect -re {__rc=\$\?"\r*\n(.*?)__rc=([0-9]+)\r*\n# $}
-    set output $expect_out(1,string)
-    if {$expect_out(2,string) != 0} {
+    return [list $expect_out(2,string) $expect_out(1,string)]
+}
+
+# Run a shell command as root and return its output.  Fails unless the
+# command exits 0.
+proc run {cmd {timeout 60}} {
+    lassign [run_status $cmd $timeout] rc output
+    if {$rc != 0} {
         fail "command failed: $cmd"
     }
     return $output

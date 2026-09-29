@@ -1,3 +1,4 @@
-/qemu-aix
+/src/
 *.swp
 /bin/__pycache__
+/bin/qemu-system-ppc

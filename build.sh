@@ -8,7 +8,7 @@ cd "$BUILDROOT"
 if [ ! -x bin/qemu-system-ppc ]; then
     if [ ! -d src/qemu-aix ]; then
         mkdir -p src
-        git clone git@github.com:dbxl-debug/qemu-aix.git src/qemu-aix
+        git clone https://github.com/dbxl-debug/qemu-aix.git src/qemu-aix
     fi
     cd src/qemu-aix
     git fetch origin

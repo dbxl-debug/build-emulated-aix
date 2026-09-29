@@ -102,11 +102,3 @@ if [ ! -e data/aix433.xldb.qcow2 ]; then
     chmod 400 data/aix433.xldb.qcow2.tmp
     mv data/aix433.xldb.qcow2.tmp data/aix433.xldb.qcow2
 fi
-
-# create a one-off working copy
-cp data/aix433.xldb.qcow2 data/aix433.working.$$.qcow2
-chmod 600 data/aix433.working.$$.qcow2
-
-"${QEMU[@]}" \
-    -hda data/aix433.working.$$.qcow2 \
-    -nic tap,model=pcnet,ifname=tap0,script=no,downscript=no

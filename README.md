@@ -46,3 +46,16 @@ When you get to the `ok` prompt enter `boot disk:1`.  You should be able to
 login as `root` with password `root`.  You can also telnet or ftp to the
 emulated AIX system at `192.168.76.2`, and from AIX your host system is
 `192.168.76.1`.
+
+## Acknowledgements
+
+This project builds on Artyom Tarasenko's work enabling IBM AIX to run under
+QEMU's PowerPC/PReP (IBM 40p) emulation. In particular, it uses his patched
+QEMU branch
+[`40p-20260308-aix-boots`](https://github.com/artyom-tarasenko/qemu/tree/40p-20260308-aix-boots)
+and
+[custom Open Firmware implementation](https://github.com/artyom-tarasenko/openfirmware/releases/tag/40p-20190413).
+His
+[AIX/PReP under QEMU How-To](https://tyom.blogspot.com/2019/04/aixprep-under-qemu-how-to.html)
+provided the foundation for this setup. Many thanks to Artyom for developing
+and documenting this work.

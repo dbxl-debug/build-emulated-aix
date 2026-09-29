@@ -34,6 +34,8 @@ The `build.sh` script will
 ./build.sh
 ```
 
+To build the same image by hand instead, see [BUILD.md](BUILD.md).
+
 ## Run
 
 ```

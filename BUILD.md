@@ -2,7 +2,9 @@
 
 These are the manual steps that `build.sh` automates.  They produce the same
 `data/aix433.xldb.qcow2`: AIX 4.3.3 installed on an emulated IBM 40p, with
-networking to the host and the IBM `xldb` debugger installed.
+networking to the host and the IBM `xldb` debugger installed.  For the
+automated version, see the [TL;DR build](README.md#tldr-build) in the
+README.
 
 `build.sh` does this in three stages, shutting down and keeping a disk image
 after each one.  By hand it's simpler to do it all in one QEMU session, with

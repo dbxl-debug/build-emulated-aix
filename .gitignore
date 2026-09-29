@@ -1,2 +1,3 @@
 /qemu-aix
 *.swp
+/bin/__pycache__

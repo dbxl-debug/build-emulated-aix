@@ -60,8 +60,24 @@ QEMU=(
 if [ ! -e data/aix433.bos.qcow2 ]; then
     rm -f data/aix433.bos.qcow2.tmp
     qemu-img create -f qcow2 data/aix433.bos.qcow2.tmp 4G
-    expect install-bos.exp "${QEMU[@]}" -hda data/aix433.bos.qcow2.tmp
+    expect lib/exp/install-bos.exp "${QEMU[@]}" -hda data/aix433.bos.qcow2.tmp
+    chmod 400 data/aix433.bos.qcow2.tmp
     mv data/aix433.bos.qcow2.tmp data/aix433.bos.qcow2
 fi
 
-#"${QEMU[@]}" -hda data/aix433.qcow2
+# set up networking
+if [ ! -e data/aix433.net.qcow2 ]; then
+    cp data/aix433.bos.qcow2 data/aix433.net.qcow2.tmp
+    chmod 600 data/aix433.net.qcow2.tmp
+    expect lib/exp/setup-network.exp "${QEMU[@]}" -hda data/aix433.net.qcow2.tmp -nic tap,model=pcnet,ifname=tap0,script=no,downscript=no
+    chmod 400 data/aix433.net.qcow2.tmp
+    mv data/aix433.net.qcow2.tmp data/aix433.net.qcow2
+fi
+
+# create a working copy
+if [ ! -e data/aix433.working.qcow2 ]; then
+    cp data/aix433.net.qcow2 data/aix433.working.qcow2
+    chmod 600 data/aix433.working.qcow2
+fi
+
+"${QEMU[@]}" -hda data/aix433.working.qcow2 -nic tap,model=pcnet,ifname=tap0,script=no,downscript=no                                  

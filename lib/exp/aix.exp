@@ -1,0 +1,99 @@
+# Helpers shared by the expect scripts that drive AIX 4.3.3 under QEMU on its
+# serial console (-nographic).  Source this, then call start_qemu.
+
+set script_name [file rootname [file tail $argv0]]
+
+if {[info exists env(AIX_ROOT_PASSWORD)]} {
+    set root_password $env(AIX_ROOT_PASSWORD)
+} else {
+    set root_password root
+}
+
+proc step {msg} {
+    global script_name
+    send_user "\n*** $script_name: $msg\n"
+}
+
+proc quit_qemu {} {
+    # Ctrl-A x exits QEMU when using -nographic.  Handle the timeout here
+    # rather than in expect_after, whose handler would call us again.
+    send "\001x"
+    set timeout 30
+    expect {
+        eof { }
+        timeout { close }
+    }
+}
+
+proc fail {msg} {
+    step $msg
+    quit_qemu
+    exit 1
+}
+
+proc start_qemu {cmd} {
+    global spawn_id
+    spawn {*}$cmd
+    expect_after {
+        timeout { fail "timed out waiting for the next prompt" }
+        eof {
+            step "qemu exited unexpectedly"
+            exit 1
+        }
+    }
+}
+
+# The firmware's default boot device is ethernet; wait for that to fail and
+# drop to the Open Firmware prompt, then boot $device.
+proc boot_from {device} {
+    set timeout 600
+    expect "Boot load failed"
+    expect "ok "
+    step "booting from $device"
+    send "boot $device\r"
+}
+
+proc login_root {} {
+    global root_password
+    set timeout 1800
+    expect "Console login:"
+    step "logging in as root"
+    send "root\r"
+    expect "root's Password:"
+    send "$root_password\r"
+    expect -re {\n# $}
+}
+
+# Run a shell command as root and return its output.  Fails unless the
+# command exits 0.
+proc run {cmd {timeout 60}} {
+    send "$cmd; echo \"__rc=\$?\"\r"
+    # The echoed command line has a literal $? where the output has digits.
+    expect -re {__rc=\$\?"\r*\n(.*?)__rc=([0-9]+)\r*\n# $}
+    set output $expect_out(1,string)
+    if {$expect_out(2,string) != 0} {
+        fail "command failed: $cmd"
+    }
+    return $output
+}
+
+# Write a file with a quoted here-document, a line at a time.
+proc write_file {path content} {
+    send "cat > $path <<'EOF'\r"
+    foreach line [split [string trimright $content "\n"] "\n"] {
+        expect -re {\n> $}
+        send "$line\r"
+    }
+    expect -re {\n> $}
+    send "EOF\r"
+    expect -re {\n# $}
+}
+
+proc shutdown_halt {} {
+    set timeout 600
+    step "shutting down"
+    send "shutdown -F\r"
+    # Match at the start of a line, since shutdown's banner also says
+    # "Wait for '....Halt completed....' before stopping."
+    expect -ex "\n....Halt completed...."
+}

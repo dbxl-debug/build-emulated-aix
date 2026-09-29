@@ -1,0 +1,63 @@
+# Set up persistent networking on an installed AIX 4.3.3 system.
+#
+# usage: expect lib/exp/setup-network.exp qemu-system-ppc [qemu args...]
+#
+# The QEMU command line must attach the installed disk and a pcnet NIC and
+# use the serial console (-nographic).  AIX can't use QEMU's PCnet adapter
+# until ent0's busio attribute is corrected, so this installs
+# /etc/rc.qemu-net, run from inittab, to fix that and configure en0 as
+# 192.168.76.2 on every boot.  Then it shuts AIX down and exits QEMU.  Exits
+# 0 on success.
+
+source [file join [file dirname [info script]] aix.exp]
+
+set busio_asc {
+CuAt:
+        name = "ent0"
+        attribute = "busio"
+        value = "0x01000000"
+        type = "O"
+        generic = "D"
+        rep = "nr"
+        nls_index = 3
+}
+
+# No backslash-newline continuations in here: Tcl folds them even in braces.
+set rc_qemu_net {#!/bin/ksh
+
+# QEMU 40p / AIX 4.3.3 PCnet busio workaround.
+# Must run after PCI device discovery and before TCP/IP startup.
+
+odmchange -o CuAt -q "name=ent0 and attribute=busio" /etc/qemu-ent0-busio.asc || exit 1
+
+rmdev -l ent0 || exit 1
+mkdev -l ent0 || exit 1
+
+ifconfig en0 192.168.76.2 netmask 255.255.255.0 up
+}
+
+start_qemu $argv
+boot_from disk:1
+login_root
+
+step "installing /etc/rc.qemu-net"
+write_file /etc/qemu-ent0-busio.asc [string trimleft $busio_asc "\n"]
+write_file /etc/rc.qemu-net $rc_qemu_net
+run "chmod 755 /etc/rc.qemu-net"
+
+step "configuring en0"
+run "/etc/rc.qemu-net" 300
+set ifconfig [run "ifconfig en0"]
+if {[string first "inet 192.168.76.2 " $ifconfig] < 0} {
+    fail "en0 did not come up as 192.168.76.2"
+}
+
+step "running /etc/rc.qemu-net from inittab"
+run "cp /etc/inittab /etc/inittab.before-qemu-net"
+run {mkitab -i rctcpip "qemunet:2:wait:/etc/rc.qemu-net > /dev/console 2>&1"}
+
+shutdown_halt
+
+step "done"
+quit_qemu
+exit 0

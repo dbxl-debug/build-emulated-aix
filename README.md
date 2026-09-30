@@ -29,6 +29,8 @@ The `build.sh` script will
 1. Build a patched QEMU that can run AIX 4.3.3
 2. Install the base AIX 4.3.3 and `xldb` packages
 3. Set up network between the host and the emulated AIX via `tap0`
+4. Set up the guest for dbxl: the assembler and `dbx`, the `sys0` settings
+   xldb needs to read core files, and a `tester` account
 
 ```
 ./build.sh
@@ -43,9 +45,9 @@ To build the same image by hand instead, see [BUILD.md](BUILD.md).
 ```
 
 When you get to the `ok` prompt enter `boot disk:1`.  You should be able to
-login as `root` with password `root`.  You can also telnet or ftp to the
-emulated AIX system at `192.168.76.2`, and from AIX your host system is
-`192.168.76.1`.
+login as `root` with password `root`, or as `tester` with password `tester`.
+You can also telnet or ftp to the emulated AIX system at `192.168.76.2`, and
+from AIX your host system is `192.168.76.1`.
 
 ## Acknowledgements
 

@@ -9,14 +9,6 @@
 
 source [file join [file dirname [info script]] aix.exp]
 
-# Fail unless $fileset is installed at $level.
-proc check_installed {fileset level} {
-    set out [run "lslpp -L $fileset"]
-    if {![regexp "\n *[string map {. \\.} $fileset] +[string map {. \\.} $level] " $out]} {
-        fail "$fileset $level is not installed"
-    }
-}
-
 start_qemu $argv
 boot_from disk:1
 login_root

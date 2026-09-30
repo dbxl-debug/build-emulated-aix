@@ -2,7 +2,7 @@
 
 set -e
 
-if [ ! -f data/aix433.xldb.qcow2 ]; then
+if [ ! -f data/aix433.dbxl.qcow2 ]; then
     ./build.sh
 fi
 
@@ -17,7 +17,7 @@ QEMU=(
 )
 
 # create a one-off working copy
-cp data/aix433.xldb.qcow2 data/aix433.working.$$.qcow2
+cp data/aix433.dbxl.qcow2 data/aix433.working.$$.qcow2
 chmod 600 data/aix433.working.$$.qcow2
 
 "${QEMU[@]}" \

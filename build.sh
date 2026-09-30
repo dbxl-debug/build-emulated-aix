@@ -102,3 +102,15 @@ if [ ! -e data/aix433.xldb.qcow2 ]; then
     chmod 400 data/aix433.xldb.qcow2.tmp
     mv data/aix433.xldb.qcow2.tmp data/aix433.xldb.qcow2
 fi
+
+# set up for dbxl: assembler, dbx, core file settings and the tester account
+if [ ! -e data/aix433.dbxl.qcow2 ]; then
+    cp data/aix433.xldb.qcow2 data/aix433.dbxl.qcow2.tmp
+    chmod 600 data/aix433.dbxl.qcow2.tmp
+    expect lib/exp/setup-dbxl.exp "${QEMU[@]}" \
+        -hda data/aix433.dbxl.qcow2.tmp \
+        -nic tap,model=pcnet,ifname=tap0,script=no,downscript=no \
+        -cdrom res/Volume_1.iso
+    chmod 400 data/aix433.dbxl.qcow2.tmp
+    mv data/aix433.dbxl.qcow2.tmp data/aix433.dbxl.qcow2
+fi

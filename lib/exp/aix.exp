@@ -98,11 +98,20 @@ proc write_file {path content} {
     expect -re {\n# $}
 }
 
+# Fail unless $fileset is installed at $level.
+proc check_installed {fileset level} {
+    set out [run "lslpp -L $fileset"]
+    if {![regexp "\n *[string map {. \\.} $fileset] +[string map {. \\.} $level] " $out]} {
+        fail "$fileset $level is not installed"
+    }
+}
+
 proc shutdown_halt {} {
     set timeout 600
     step "shutting down"
     send "shutdown -F\r"
     # Match at the start of a line, since shutdown's banner also says
-    # "Wait for '....Halt completed....' before stopping."
-    expect -ex "\n....Halt completed...."
+    # "Wait for '....Halt completed....' before stopping."  The line can
+    # start with a stray \r, e.g. after a late syslog message.
+    expect -re {\n\r*\.\.\.\.Halt completed\.\.\.\.}
 }

@@ -1,0 +1,68 @@
+# Set up the guest for dbxl's recon and tests.
+#
+# usage: expect lib/exp/setup-dbxl.exp qemu-system-ppc [qemu args...]
+#
+# The QEMU command line must attach the installed disk and the AIX Volume 1
+# CD (cd0), and use the serial console (-nographic).  Installs the assembler,
+# syscalls.exp and dbx from bos.adt, turns on the sys0 core file settings
+# xldb needs to read cores, and creates the unprivileged tester
+# account (password from $AIX_TESTER_PASSWORD, default "tester").  Then it
+# shuts AIX down and exits QEMU.  Exits 0 on success.
+
+source [file join [file dirname [info script]] aix.exp]
+
+if {[info exists env(AIX_TESTER_PASSWORD)]} {
+    set tester_password $env(AIX_TESTER_PASSWORD)
+} else {
+    set tester_password tester
+}
+
+start_qemu $argv
+boot_from disk:1
+login_root
+
+# install-xldb.exp already made /cdrom.
+step "mounting the install CD"
+run "mount -v cdrfs -o ro /dev/cd0 /cdrom"
+
+# As in install-xldb.exp, check what got installed rather than trusting
+# installp's exit status.
+set adt_filesets {bos.adt.base bos.adt.syscalls bos.adt.debug}
+step "installing [join $adt_filesets]"
+run_status "installp -a -g -d /cdrom/usr/sys/inst.images [join $adt_filesets]" 1800
+foreach fileset $adt_filesets {
+    check_installed $fileset 4.3.3.0
+}
+run "ls -l /usr/bin/as /usr/bin/ld /usr/bin/dbx /usr/lib/crt0.o /usr/lib/syscalls.exp"
+
+run "umount /cdrom"
+
+# xldb predates AIX 4.3's core layout.  Without fullcore, 1.2.1.0 fails
+# with "Read failed for corefile", and without pre430core it can't tell which
+# executable made the core.
+step "turning on fullcore and pre430core"
+run "chdev -l sys0 -a fullcore=true -a pre430core=true"
+set cores [run "lsattr -El sys0 -a fullcore -a pre430core"]
+foreach attr {fullcore pre430core} {
+    if {![regexp -line "^$attr +true " $cores]} {
+        fail "$attr is not true on sys0"
+    }
+}
+
+step "creating the tester account"
+run "mkuser tester"
+send "passwd tester\r"
+expect "tester's New password:"
+send "$tester_password\r"
+expect "Enter the new password again:"
+send "$tester_password\r"
+expect -re {\n# $}
+# passwd run by root makes the user change the password at the next login;
+# clear that flag.
+run "pwdadm -c tester"
+
+shutdown_halt
+
+step "done"
+quit_qemu
+exit 0
